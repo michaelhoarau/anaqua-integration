@@ -1,0 +1,28 @@
+/* This file is the descriptor for the parameter set api-key */
+{
+    "meta" : {
+        "label": "Anaqua API Key",
+        "pluralLabel": "Anaqua API Keys",
+        "description": "Preset",
+        "icon": "icon-key"
+    },
+
+    "defaultDefinableInline": true,
+    "defaultDefinableAtProjectLevel": true,
+
+    "params": [
+        {
+            "name": "baseUrl",
+            "label": "Base URL",
+            "description": "URL of your Anaqua tenant",
+            "type": "STRING",
+            "mandatory": false
+        },
+        {
+            "name": "credentials",
+            "label": "Anaqua Credentials",
+            "type": "CREDENTIAL_REQUEST",
+            "credentialRequestSettings": { "type": "BASIC" }
+        }
+    ]
+}

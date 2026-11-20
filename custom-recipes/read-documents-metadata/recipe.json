@@ -1,0 +1,52 @@
+{
+    "meta": {
+        "label": "Read documents metadata",
+        "description": "Takes a column containing patent IDs in the input dataset and extracts the metadata of all documents attached to each patent",
+        "icon": "fas fa-table",
+        "iconColor": "brown"
+    },
+    "paramsPythonSetup": "params.py",
+    "selectableFromDataset": "input_dataset",
+    "kind": "PYTHON",
+    "inputRoles": [
+        {
+            "name": "input_dataset",
+            "label": "Input dataset",
+            "description": "This dataset should contain at least a column with patent IDs",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsDataset": true
+        }
+    ],
+    "outputRoles": [
+        {
+            "name": "output_dataset",
+            "label": "Output dataset",
+            "description": "This dataset will contain all the documents metadata",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsDataset": true
+        }
+    ],
+    "params": [
+        {
+            "name": "verbose",
+            "label": "Verbose?",
+            "type": "BOOLEAN",
+            "description": "Display detailed debugging messages in the log while running this recipe",
+            "mandatory": true
+        },
+        {
+          "type": "PRESET",
+          "name": "api-key",
+          "label": "Choose which API key to use",
+          "parameterSetId": "api-key"
+        },
+        {
+            "name": "patentId",
+            "label": "Patent record column",
+            "type": "SELECT",
+            "getChoicesFromPython": true
+        }
+    ]
+}

@@ -1,0 +1,53 @@
+{
+    "meta": {
+        "label": "Download file content",
+        "description": "Download the content of the files referenced by a FileId in the input dataset",
+        "icon": "fas fa-file-image",
+        "iconColor": "brown"
+    },
+    "paramsPythonSetup": "params.py",
+    "selectableFromDataset": "input_dataset",
+    "kind": "PYTHON",
+    "inputRoles": [
+        {
+            "name": "input_dataset",
+            "label": "Input dataset",
+            "description": "This dataset should contain at least a column with file IDs",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsDataset": true
+        }
+    ],
+    "outputRoles": [
+        {
+            "name": "output_dataset",
+            "label": "Output dataset",
+            "description": "This managed folder will contain all the documents content",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsDataset": false,
+            "acceptsManagedFolder": true
+        }
+    ],
+    "params": [
+        {
+            "name": "verbose",
+            "label": "Verbose?",
+            "type": "BOOLEAN",
+            "description": "Display detailed debugging messages in the log while running this recipe",
+            "mandatory": true
+        },
+        {
+          "type": "PRESET",
+          "name": "api-key",
+          "label": "Choose which API key to use",
+          "parameterSetId": "api-key"
+        },
+        {
+            "name": "fileId",
+            "label": "File id column",
+            "type": "SELECT",
+            "getChoicesFromPython": true
+        }
+    ]
+}

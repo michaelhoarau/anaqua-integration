@@ -1,0 +1,67 @@
+{
+    "meta": {
+        "label": "Read patents",
+        "description": "This recipe will connect to your Anaqua tenant and extract all patents associated to the input inventions",
+        "icon": "fas fa-file-contract",
+        "iconColor": "brown"
+    },
+    "paramsPythonSetup": "params.py",
+    "selectableFromDataset": "input_dataset",
+    "kind": "PYTHON",
+    "inputRoles": [
+        {
+            "name": "input_dataset",
+            "label": "Input dataset",
+            "description": "This dataset should contain at least a column with invention IDs",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsDataset": true
+        }
+    ],
+    "outputRoles": [
+        {
+            "name": "output_dataset",
+            "label": "Output dataset",
+            "description": "This dataset will contain the list of patents",
+            "arity": "UNARY",
+            "required": false,
+            "acceptsDataset": true
+        }
+    ],
+    "params": [
+        {
+            "name": "verbose",
+            "label": "Verbose?",
+            "type": "BOOLEAN",
+            "description": "Display detailed debugging messages in the log while running this recipe",
+            "mandatory": true
+        },
+        {
+            "name": "mode",
+            "label": "Mode",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": "ALL",
+                    "label": "Load all patents available"
+                },
+                {
+                    "value": "NEW",
+                    "label": "Update dataset with new patents"
+                }
+            ]
+        },
+        {
+          "type": "PRESET",
+          "name": "api-key",
+          "label": "Choose which API key to use",
+          "parameterSetId": "api-key"
+        },
+        {
+            "name": "recordId",
+            "label": "Invention record column",
+            "type": "SELECT",
+            "getChoicesFromPython": true
+        }
+    ]
+}

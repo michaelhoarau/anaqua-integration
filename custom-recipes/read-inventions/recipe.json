@@ -1,0 +1,49 @@
+{
+    "meta": {
+        "label": "Read inventions",
+        "description": "This recipe will connect to your Anaqua tenant and extract all inventions available to your user",
+        "icon": "fas fa-lightbulb",
+        "iconColor": "green"
+    },
+    "kind": "PYTHON",
+    "outputRoles": [
+        {
+            "name": "output_dataset",
+            "label": "Output dataset",
+            "description": "This dataset will contain the list of inventions",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsManagedFolder": true
+        }
+    ],
+    "params": [
+        {
+            "name": "verbose",
+            "label": "Verbose?",
+            "type": "BOOLEAN",
+            "description": "Display detailed debugging messages in the log while running this recipe",
+            "mandatory": true
+        },
+        {
+            "name": "mode",
+            "label": "Mode",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": "ALL",
+                    "label": "Load all inventions available"
+                },
+                {
+                    "value": "NEW",
+                    "label": "Update dataset with new inventions"
+                }
+            ]
+        },
+        {
+          "type": "PRESET",
+          "name": "api-key",
+          "label": "Choose which API key to use",
+          "parameterSetId": "api-key"
+        }
+    ]
+}

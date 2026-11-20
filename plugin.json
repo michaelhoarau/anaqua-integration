@@ -1,0 +1,14 @@
+{
+    "id": "anaqua-integration",
+    "version": "0.0.1",
+    "meta": {
+        "label": "Anaqua",
+        "description": "Visual recipes to interact with an Anaqua tenant.",
+        "author": "Michaël Hoarau (Dataiku)",
+        "icon": "fas fa-balance-scale-right",
+        "category": "Anaqua",
+        "tags": ["Agentic"],
+        "url": "",
+        "licenseInfo": "Apache Software License"
+    }
+}
