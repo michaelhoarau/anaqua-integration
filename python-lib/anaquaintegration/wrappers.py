@@ -7,7 +7,7 @@ from anaquaintegration.utils import aqx_request
 
 def get_transaction_id(BASE_URL, KEY_ID, KEY_SECRET, logger):
     # Get last transaction ID:
-    API_PATH = "/api/v11.2/Synchronization/CurrentSynchronizationTransactionId"
+    API_PATH = "/api/v11.4/Synchronization/CurrentSynchronizationTransactionId"
     response = aqx_request(
         method="GET",
         base_url=BASE_URL,
@@ -51,7 +51,7 @@ def get_result_id(BASE_URL, KEY_ID, KEY_SECRET, logger, start_transaction_id, la
     # extracts all the changes since day 1, that a given account has access
     # to. This might be quite slow, so finding a proper "StartingTransactionId"
     # based on dates would probably be valuable (TODO)
-    API_PATH = "/api/v11.2/MatterSynchronizationRecordInfo/RecordChanges"
+    API_PATH = "/api/v11.4/MatterSynchronizationRecordInfo/RecordChanges"
     response = aqx_request(
         method="POST",
         base_url=BASE_URL,
@@ -109,7 +109,7 @@ def get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_id):
     inventions_list = []
     logger.info("********** ---[ Anaqua Read Inventions Recipe ]--- **********")
     while num_results > 0:
-        API_PATH = f"/api/v11.2/MatterSynchronizationRecordInfo/RecordChangeResults?resultId={result_id}&pageNumber={page_number}&pageSize=50"
+        API_PATH = f"/api/v11.4/MatterSynchronizationRecordInfo/RecordChangeResults?resultId={result_id}&pageNumber={page_number}&pageSize=50"
         response = aqx_request(
             method="GET",
             base_url=BASE_URL,
@@ -167,7 +167,7 @@ def get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_lis
         logger.debug("********** ---[ Anaqua Read Inventions Metadata ]--- **********")
         logger.debug(f'- Processing invention {invention_id}')
         
-        API_PATH = f"/api/v11.2/InventionMatterSynchronizationInfo/{invention_id}"
+        API_PATH = f"/api/v11.4/InventionMatterSynchronizationInfo/{invention_id}"
         response = aqx_request(
             method="GET",
             base_url=BASE_URL,
@@ -209,7 +209,7 @@ def get_patents_list(BASE_URL, KEY_ID, KEY_SECRET, logger, input_dataset_name, r
 
     patents = []
     for invention_id in inventions_list:
-        API_PATH = f"/api/v11.2/PatentMatterSynchronizationInfo/PatentFamily?inventionId={invention_id}"
+        API_PATH = f"/api/v11.4/PatentMatterSynchronizationInfo/PatentFamily?inventionId={invention_id}"
         response = aqx_request(
             method="GET",
             base_url=BASE_URL,
@@ -265,7 +265,7 @@ def get_documents_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, input_dataset_n
         logger.debug("********** ---[ Anaqua Read Document Metadata Recipe ]--- **********")
         logger.debug("Processing patent #{patent_id}:")
 
-        API_PATH = f"/api/v11.2/DocumentSynchronizationRecordFileLinkInfo/RecordFileLinksInfo?recordId={patent_id}"
+        API_PATH = f"/api/v11.4/DocumentSynchronizationRecordFileLinkInfo/RecordFileLinksInfo?recordId={patent_id}"
         response = aqx_request(
             method="GET",
             base_url=BASE_URL,
@@ -312,7 +312,7 @@ def get_documents_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, input_dataset_n
             docs = []
             for doc in resp_json:
                 fileId = doc['FileId']
-                API_PATH = f"/api/v11.2/DocumentSynchronizationFile/DocumentSynchronizationInfo?fileId={fileId}"
+                API_PATH = f"/api/v11.4/DocumentSynchronizationFile/DocumentSynchronizationInfo?fileId={fileId}"
                 response = aqx_request(
                     method="GET",
                     base_url=BASE_URL,
@@ -358,7 +358,7 @@ def download_document(BASE_URL, KEY_ID, KEY_SECRET, fileProperties, targetFolder
     patent = fileProperties['PatentId']
     fileId = fileProperties['FileId']
 
-    API_PATH = f"/api/v11.2/DocumentSynchronizationFile/{fileId}"
+    API_PATH = f"/api/v11.4/DocumentSynchronizationFile/{fileId}"
     response = aqx_request(
         method="GET",
         base_url=BASE_URL,
