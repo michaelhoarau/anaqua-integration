@@ -5,7 +5,7 @@ import pandas as pd
 
 from dataiku.customrecipe import get_output_names_for_role
 from anaquaintegration.utils import run_initialization
-from anaquaintegration.wrappers import get_transaction_id, get_result_id, get_inventions_list, get_inventions_metadata
+from anaquaintegration.wrappers import get_transaction_id, get_result_ids, get_inventions_list, get_inventions_metadata
 
 # Initialization:
 init         = run_initialization()
@@ -28,8 +28,8 @@ elif mode == "NEW":
 # run a search for all record changes of type "Inventions" with
 # that transaction id and then loops through the paginated results:
 last_transaction_id = get_transaction_id(BASE_URL, KEY_ID, KEY_SECRET, logger)
-result_id           = get_result_id(BASE_URL, KEY_ID, KEY_SECRET, logger, start_transaction_id, last_transaction_id)
-inventions_list     = get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_id)
+result_ids          = get_result_ids(BASE_URL, KEY_ID, KEY_SECRET, logger, start_transaction_id, last_transaction_id)
+inventions_list     = get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_ids)
 inventions_list     = get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_list)
 
 # Write recipe outputs:

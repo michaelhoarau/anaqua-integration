@@ -37,126 +37,214 @@ def get_transaction_id(BASE_URL, KEY_ID, KEY_SECRET, logger):
     
     return last_transaction_id
 
-def get_result_id(BASE_URL, KEY_ID, KEY_SECRET, logger, start_transaction_id, last_transaction_id):
-    # First, we need to run a search and get a result id:
-    payload = {
-      "StartingTransactionId": start_transaction_id,
-      "EndingTransactionId": last_transaction_id,
-      "RecordTypes": [
-        "Invention"
-      ]
-    }
-    
-    # Search for all transaction changes up until that transaction id. This
-    # extracts all the changes since day 1, that a given account has access
-    # to. This might be quite slow, so finding a proper "StartingTransactionId"
-    # based on dates would probably be valuable (TODO)
-    API_PATH = "/api/v11.4/MatterSynchronizationRecordInfo/RecordChanges"
+def get_result_ids(BASE_URL, KEY_ID, KEY_SECRET, logger, start_transaction_id, last_transaction_id):
+    # Since v11.4, Anaqua only allows retrieving windowed results. This 
+    # window size is defined by the "MaximumTransactionWindowSize" endpoint:
+    API_PATH = "/api/v11.4/Synchronization/MaximumTransactionWindowSize"
     response = aqx_request(
-        method="POST",
+        method="GET",
         base_url=BASE_URL,
         api_path=API_PATH,
         api_key_id=KEY_ID,
-        api_key_content=KEY_SECRET,
-        data=json.dumps(payload)
+        api_key_content=KEY_SECRET
     )
 
     if response.status_code != 200:
         raise RuntimeError(
-            f"Failed to search for inventions via RecordChanges."
+            f"Failed to retrieve current Anaqua transaction window size. "
             f"Endpoint: {API_PATH}."
             f"Status code: {response.status_code}."
         )
 
-    try:
-        resp_json = response.json()
-    except:
-        try:
-            resp_json = json.loads(response.text)
-        except Exception as e:
-            body_excerpt = (response.text or "").replace("\n", " ").replace("\r", " ")[:600]
-            raise RuntimeError(
-                f"RecordChanges returned a non-JSON response. "
-                f"Endpoint: {API_PATH}. "
-                f"Body excerpt: {body_excerpt}"
-            ) from e
-
-    if not isinstance(resp_json, dict):
-        raise RuntimeError(
-            f"Unexpected RecordChanges response type. Expected JSON object, got {type(resp_json).__name__}."
-        )
-
-    result_id = resp_json.get("ResultId")
-    if not result_id or not isinstance(result_id, int):
-        raise RuntimeError(
-            f"RecordChanges response missing/invalid 'ResultId'. "
-            f"Keys present: {sorted(resp_json.keys())[:30]}"
-        )
-
+    max_window = int(response.text.strip().strip('"'))
     logger.debug("********** ---[ Anaqua Read Inventions Recipe ]--- **********")
-    logger.debug("Payload to search for all transaction changes:")
-    logger.debug(payload)
-    logger.debug("Results:")
-    logger.debug(resp_json)
-    
-    return result_id
+    logger.debug(f"Max window size: {max_window}")
 
-def get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_id):
-    # Now we have a result id, we loop through all the results associated to it:
-    page_number = 1
-    num_results = 1
-    num_inventions = 0
-    inventions_list = []
-    logger.info("********** ---[ Anaqua Read Inventions Recipe ]--- **********")
-    while num_results > 0:
-        API_PATH = f"/api/v11.4/MatterSynchronizationRecordInfo/RecordChangeResults?resultId={result_id}&pageNumber={page_number}&pageSize=50"
+    # Loops through transaction windows and assemble a list of result IDs:
+    #inventions_list = []
+    result_ids = []
+    page_size = 200
+    for start_id in range(start_transaction_id, last_transaction_id + 1, max_window + 1):
+        end_id = min(start_id + max_window, last_transaction_id)
+
+        # We need to run a search to get the associated result id:
+        payload = {
+            "StartingTransactionId": start_id,
+            "EndingTransactionId": end_id,
+            "RecordTypes": ["Invention"]
+        }
+
+        API_PATH = "/api/v11.4/MatterSynchronizationRecordInfo/RecordChanges"
         response = aqx_request(
-            method="GET",
+            method="POST",
             base_url=BASE_URL,
             api_path=API_PATH,
             api_key_id=KEY_ID,
-            api_key_content=KEY_SECRET
+            api_key_content=KEY_SECRET,
+            json=payload
         )
-        
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to search for inventions list. "
-                f"Endpoint: {API_PATH}. "
+                f"Failed to search for inventions via RecordChanges."
+                f"Endpoint: {API_PATH}."
                 f"Status code: {response.status_code}."
             )
+
+        result = response.json()
+        if "ErrorId" in result:
+            raise RuntimeError(f"Anaqua error: {result}")
+
+        result_ids.append(result["ResultId"])
+
+#        result_id = result["ResultId"]
+        result_count = result["ResultCount"]
+        logger.info(f"- Transactions {start_id}-{end_id}: {result_count} changes found, result ID: {result['ResultId']}")
+        
+    #     # Retrieve all result pages for this transaction window. Results can be paginated:
+    #     for page_number in range(1, (result_count + page_size - 1) // page_size + 1):
+    #         API_PATH = "/api/v11.4/MatterSynchronizationRecordInfo/RecordChangeResults"
+    #         page_response = aqx_request(
+    #             method="GET",
+    #             base_url=BASE_URL,
+    #             api_path=API_PATH,
+    #             api_key_id=KEY_ID,
+    #             api_key_content=KEY_SECRET,
+    #             params={
+    #                 "resultId": result_id,
+    #                 "pageNumber": page_number,
+    #                 "pageSize": page_size
+    #             }
+    #         )
+
+    #         if page_response.status_code != 200:
+    #             raise RuntimeError(
+    #                 f"Failed to search for inventions via RecordChanges."
+    #                 f"Endpoint: {API_PATH}."
+    #                 f"Status code: {response.status_code}."
+    #             )
             
-        try:
-            resp_json = response.json()
-        except:
-            try:
-                resp_json = json.loads(response.text)
-            except Exception as e:
-                body_excerpt = (response.text or "").replace("\n", " ").replace("\r", " ")[:600]
+    #         inventions_list.extend(page_response.json())
+
+    # logger.info("********** ---[ Anaqua Read Inventions Recipe ]--- **********")
+    # logger.info(f"Total invention changes retrieved: {len(inventions_list)}")
+
+
+    
+    # # Search for all transaction changes up until that transaction id. This
+    # # extracts all the changes since day 1, that a given account has access
+    # # to. This might be quite slow, so finding a proper "StartingTransactionId"
+    # # based on dates would probably be valuable (TODO)
+    # API_PATH = "/api/v11.4/MatterSynchronizationRecordInfo/RecordChanges"
+    # response = aqx_request(
+    #     method="POST",
+    #     base_url=BASE_URL,
+    #     api_path=API_PATH,
+    #     api_key_id=KEY_ID,
+    #     api_key_content=KEY_SECRET,
+    #     data=json.dumps(payload)
+    # )
+
+    # if response.status_code != 200:
+    #     raise RuntimeError(
+    #         f"Failed to search for inventions via RecordChanges."
+    #         f"Endpoint: {API_PATH}."
+    #         f"Status code: {response.status_code}."
+    #     )
+
+    # try:
+    #     resp_json = response.json()
+    # except:
+    #     try:
+    #         resp_json = json.loads(response.text)
+    #     except Exception as e:
+    #         body_excerpt = (response.text or "").replace("\n", " ").replace("\r", " ")[:600]
+    #         raise RuntimeError(
+    #             f"RecordChanges returned a non-JSON response. "
+    #             f"Endpoint: {API_PATH}. "
+    #             f"Body excerpt: {body_excerpt}"
+    #         ) from e
+
+    # if not isinstance(resp_json, dict):
+    #     raise RuntimeError(
+    #         f"Unexpected RecordChanges response type. Expected JSON object, got {type(resp_json).__name__}."
+    #     )
+
+    # result_id = resp_json.get("ResultId")
+    # if not result_id or not isinstance(result_id, int):
+    #     raise RuntimeError(
+    #         f"RecordChanges response missing/invalid 'ResultId'. "
+    #         f"Keys present: {sorted(resp_json.keys())[:30]}"
+    #     )
+
+    # logger.debug("********** ---[ Anaqua Read Inventions Recipe ]--- **********")
+    # logger.debug("Payload to search for all transaction changes:")
+    # logger.debug(payload)
+    # logger.debug("Results:")
+    # logger.debug(resp_json)
+    
+    return result_ids
+
+def get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_ids):
+    # Now we have a list of result ids, we loop through all 
+    # the results associated to each result id and assemble 
+    # a list of inventions:
+    inventions_list = []
+    logger.info("********** ---[ Anaqua Read Inventions Recipe ]--- **********")
+    
+    for result_id in result_ids:
+        page_number = 1
+        num_results = 1
+        num_inventions = 0
+
+        while num_results > 0:
+            API_PATH = f"/api/v11.4/MatterSynchronizationRecordInfo/RecordChangeResults?resultId={result_id}&pageNumber={page_number}&pageSize=50"
+            response = aqx_request(
+                method="GET",
+                base_url=BASE_URL,
+                api_path=API_PATH,
+                api_key_id=KEY_ID,
+                api_key_content=KEY_SECRET
+            )
+        
+            if response.status_code != 200:
                 raise RuntimeError(
-                    f"RecordChangeResults returned a non-JSON response. "
+                    f"Failed to search for inventions list. "
                     f"Endpoint: {API_PATH}. "
-                    f"Body excerpt: {body_excerpt}"
-                ) from e
-                
-        if not isinstance(resp_json, list):
-            raise RuntimeError(
-                f"Unexpected RecordChangeResults response type. Expected JSON list, got {type(resp_json).__name__}."
-            )
+                    f"Status code: {response.status_code}."
+                )
             
-        if not all(isinstance(item, dict) for item in resp_json):
-            bad_types = {type(item).__name__ for item in resp_json if not isinstance(item, dict)}
-            raise RuntimeError(
-                f"Unexpected RecordChangeResults response element types. Expected list of dicts, got non-dict types: {sorted(bad_types)}."
-            )
+            try:
+                resp_json = response.json()
+            except:
+                try:
+                    resp_json = json.loads(response.text)
+                except Exception as e:
+                    body_excerpt = (response.text or "").replace("\n", " ").replace("\r", " ")[:600]
+                    raise RuntimeError(
+                        f"RecordChangeResults returned a non-JSON response. "
+                        f"Endpoint: {API_PATH}. "
+                        f"Body excerpt: {body_excerpt}"
+                    ) from e
+                
+            if not isinstance(resp_json, list):
+                raise RuntimeError(
+                    f"Unexpected RecordChangeResults response type. Expected JSON list, got {type(resp_json).__name__}."
+                )
+            
+            if not all(isinstance(item, dict) for item in resp_json):
+                bad_types = {type(item).__name__ for item in resp_json if not isinstance(item, dict)}
+                raise RuntimeError(
+                    f"Unexpected RecordChangeResults response element types. Expected list of dicts, got non-dict types: {sorted(bad_types)}."
+                )
 
-        current_inventions_list = resp_json
-        num_results = len(current_inventions_list)
-        num_inventions += num_results
+            current_inventions_list = resp_json
+            num_results = len(current_inventions_list)
+            num_inventions += num_results
 
-        if num_results > 0:
-            inventions_list += current_inventions_list
-            logger.info(f"{num_inventions} inventions extracted")
-            page_number += 1
+            if num_results > 0:
+                inventions_list += current_inventions_list
+                logger.info(f"{num_inventions} inventions extracted for result ID {result_id} (page {page_number})")
+                page_number += 1
             
     return inventions_list
 
