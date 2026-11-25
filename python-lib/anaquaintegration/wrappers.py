@@ -239,13 +239,13 @@ def get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_lis
     SEARCH_PATH = "/api/v11.4/InventionMatterSynchronizationInfo/Search"
     RESULTS_PATH = "/api/v11.4/InventionMatterSynchronizationInfo/SearchResults"
 
-    # # Validate that all inventions have the required identifiers.
-    # for inv in inventions_list:
-    #     if not inv.get("ReferenceNumber") or inv.get("RecordId") is None:
-    #         raise ValueError(
-    #             f"Missing RecordId or ReferenceNumber: "
-    #             f"{inv.get('RecordId')}"
-    #         )
+    # Validate that all inventions have the required identifiers.
+    for inv in inventions_list:
+        if not inv.get("ReferenceNumber") or inv.get("RecordId") is None:
+            raise ValueError(
+                f"Missing RecordId or ReferenceNumber: "
+                f"{inv.get('RecordId')}"
+            )
 
     metadata_by_id = {}
     total_inventions = len(inventions_list)
