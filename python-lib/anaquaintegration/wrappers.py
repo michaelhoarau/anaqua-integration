@@ -172,43 +172,228 @@ def get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_ids):
     return inventions_list
 
 
-def get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_list):
-    logger.debug("********** ---[ Anaqua Read Inventions Metadata ]--- **********")
-    for index, inv in enumerate(inventions_list):
-        invention_id = inv['RecordId']
-        logger.debug(f'- Processing invention {invention_id}')
+# def get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_list):
+#     logger.debug("********** ---[ Anaqua Read Inventions Metadata ]--- **********")
+#     for index, inv in enumerate(inventions_list):
+#         invention_id = inv['RecordId']
+#         logger.debug(f'- Processing invention {invention_id}')
         
-        API_PATH = f"/api/v11.4/InventionMatterSynchronizationInfo/{invention_id}"
-        response = aqx_request(
-            method="GET",
-            base_url=BASE_URL,
-            api_path=API_PATH,
-            api_key_id=KEY_ID,
-            api_key_content=KEY_SECRET
+#         API_PATH = f"/api/v11.4/InventionMatterSynchronizationInfo/{invention_id}"
+#         response = aqx_request(
+#             method="GET",
+#             base_url=BASE_URL,
+#             api_path=API_PATH,
+#             api_key_id=KEY_ID,
+#             api_key_content=KEY_SECRET
+#         )
+        
+#         if response.status_code != 200:
+#             raise RuntimeError(
+#                 f"Failed to search for inventions metadata. "
+#                 f"Endpoint: {API_PATH}. "
+#                 f"Status code: {response.status_code}."
+#             )
+            
+#         try:
+#             resp_json = response.json()
+#         except:
+#             try:
+#                 resp_json = json.loads(response.text)
+#             except Exception as e:
+#                 body_excerpt = (response.text or "").replace("\n", " ").replace("\r", " ")[:600]
+#                 raise RuntimeError(
+#                     f"InventionMatter returned a non-JSON response. "
+#                     f"Endpoint: {API_PATH}. "
+#                     f"Body excerpt: {body_excerpt}"
+#                 ) from e
+                
+#         inventions_list[index] = {**inventions_list[index], **response.json()}
+        
+#     return inventions_list
+
+
+def get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_list, batch_size=100, page_size=100):
+    """
+    Retrieve metadata for a list of inventions in batches.
+
+    Args:
+        BASE_URL (str): Base URL for the Anaqua API.
+        KEY_ID (str): API key ID.
+        KEY_SECRET (str): API key secret.
+        logger (logging.Logger): Logger for debug/info messages.
+        inventions_list (list): List of inventions to retrieve metadata for.
+        batch_size (int): Number of inventions to process in each batch.
+        page_size (int): Number of results to retrieve per page.
+
+    Returns:
+        list: Updated list of inventions with metadata included.
+    """
+    logger.debug("********** ---[ Anaqua Read Inventions Metadata (Bulk) ]--- **********")
+
+    if not inventions_list:
+        return inventions_list
+
+    if batch_size <= 0 or page_size <= 0:
+        raise ValueError("Batch size and page size must be positive.")
+
+    SEARCH_PATH = "/api/v11.4/InventionMatterSynchronizationInfo/Search"
+    RESULTS_PATH = "/api/v11.4/InventionMatterSynchronizationInfo/SearchResults"
+
+    # # Validate that all inventions have the required identifiers.
+    # for inv in inventions_list:
+    #     if not inv.get("ReferenceNumber") or inv.get("RecordId") is None:
+    #         raise ValueError(
+    #             f"Missing RecordId or ReferenceNumber: "
+    #             f"{inv.get('RecordId')}"
+    #         )
+
+    metadata_by_id = {}
+    total_inventions = len(inventions_list)
+
+    # Process inventions in batches.
+    for start in range(0, total_inventions, batch_size):
+        batch = inventions_list[start:start + batch_size]
+        batch_ids = {inv["RecordId"] for inv in batch}
+
+        logger.debug(
+            f"- Processing inventions "
+            f"{start + 1} to {start + len(batch)} "
+            f"of {total_inventions}"
         )
-        
+
+        reference_numbers = list(dict.fromkeys(inv["ReferenceNumber"] for inv in batch))
+
+        # Step 1: Search for inventions using reference numbers.
+        search_payload = {
+            "Numbers": [
+                {
+                    "NumberLookupType": "RecordReferenceNumber",
+                    "NumberValue": reference_number
+                }
+                for reference_number in reference_numbers
+            ]
+        }
+
+        response = aqx_request(
+            method="POST",
+            base_url=BASE_URL,
+            api_path=SEARCH_PATH,
+            api_key_id=KEY_ID,
+            api_key_content=KEY_SECRET,
+            json=search_payload
+        )
+
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to search for inventions metadata. "
-                f"Endpoint: {API_PATH}. "
+                f"Endpoint: {SEARCH_PATH}. "
                 f"Status code: {response.status_code}."
             )
-            
+
         try:
-            resp_json = response.json()
-        except:
-            try:
-                resp_json = json.loads(response.text)
-            except Exception as e:
-                body_excerpt = (response.text or "").replace("\n", " ").replace("\r", " ")[:600]
+            search_result = response.json()
+            result_id = search_result["ResultId"]
+            result_count = int(search_result["ResultCount"])
+        except (ValueError, KeyError, TypeError) as e:
+            raise RuntimeError(
+                f"Invalid search response. Endpoint: {SEARCH_PATH}"
+            ) from e
+
+        logger.debug(
+            f"  - ResultId: {result_id}, "
+            f"ResultCount: {result_count}"
+        )
+
+        # Step 2: Retrieve all pages of search results.
+        number_of_pages = (result_count + page_size - 1) // page_size
+
+        for page_number in range(1, number_of_pages + 1):
+            logger.debug(
+                f"  - Retrieving page "
+                f"{page_number}/{number_of_pages}"
+            )
+
+            response = aqx_request(
+                method="GET",
+                base_url=BASE_URL,
+                api_path=RESULTS_PATH,
+                api_key_id=KEY_ID,
+                api_key_content=KEY_SECRET,
+                params={
+                    "resultId": result_id,
+                    "pageNumber": page_number,
+                    "pageSize": page_size
+                }
+            )
+
+            if response.status_code != 200:
                 raise RuntimeError(
-                    f"InventionMatter returned a non-JSON response. "
-                    f"Endpoint: {API_PATH}. "
-                    f"Body excerpt: {body_excerpt}"
+                    f"Failed to retrieve inventions metadata. "
+                    f"Endpoint: {RESULTS_PATH}. "
+                    f"Page: {page_number}. "
+                    f"Status code: {response.status_code}."
+                )
+
+            try:
+                records = response.json()
+            except ValueError as e:
+                raise RuntimeError(
+                    f"Invention SearchResults returned "
+                    f"a non-JSON response."
                 ) from e
-                
-        inventions_list[index] = {**inventions_list[index], **response.json()}
-        
+
+            if not isinstance(records, list):
+                raise RuntimeError(
+                    "Unexpected Invention SearchResults format."
+                )
+
+            # Index the returned metadata by RecordId.
+            for record in records:
+
+                if not isinstance(record, dict):
+                    raise RuntimeError("Invalid invention record.")
+
+                record_id = record.get("RecordId")
+
+                # Ignore records outside the requested batch.
+                if record_id not in batch_ids:
+                    continue
+
+                if "ExportControlStatus" not in record:
+                    raise RuntimeError(
+                        f"ExportControlStatus missing for "
+                        f"invention {record_id}."
+                    )
+
+                metadata_by_id[record_id] = record
+
+    # Step 3: Check that all requested inventions were retrieved.
+    missing_ids = [
+        inv["RecordId"]
+        for inv in inventions_list
+        if inv["RecordId"] not in metadata_by_id
+    ]
+
+    if missing_ids:
+        raise RuntimeError(
+            f"Failed to retrieve metadata for "
+            f"{len(missing_ids)} inventions. "
+            f"Missing RecordIds: {missing_ids[:20]}"
+        )
+
+    # Step 4: Merge metadata into the original list.
+    for index, inv in enumerate(inventions_list):
+
+        inventions_list[index] = {
+            **inv,
+            **metadata_by_id[inv["RecordId"]]
+        }
+
+    logger.debug(
+        f"- Successfully retrieved metadata for "
+        f"{len(metadata_by_id)} unique inventions."
+    )
+
     return inventions_list
 
 

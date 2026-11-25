@@ -31,7 +31,7 @@ result_ids          = get_result_ids(BASE_URL, KEY_ID, KEY_SECRET, logger, start
 # run a search for all record changes of type "Inventions" with
 # that transaction id and then loops through the paginated results:
 inventions_list     = get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_ids)
-#inventions_list     = get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_list)
+inventions_list     = get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_list)
 
 # Write recipe outputs:
 inventions_list_df = pd.DataFrame(inventions_list)
