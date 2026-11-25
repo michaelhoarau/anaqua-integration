@@ -226,7 +226,8 @@ def get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_lis
         page_size (int): Number of results to retrieve per page.
 
     Returns:
-        list: Updated list of inventions with metadata included.
+        list: Inventions with valid reference numbers and metadata included.
+            Discarded inventions are logged in a warning at the end.
     """
     logger.debug("********** ---[ Anaqua Read Inventions Metadata (Bulk) ]--- **********")
 
@@ -239,13 +240,24 @@ def get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_lis
     SEARCH_PATH = "/api/v11.4/InventionMatterSynchronizationInfo/Search"
     RESULTS_PATH = "/api/v11.4/InventionMatterSynchronizationInfo/SearchResults"
 
-    # Validate that all inventions have the required identifiers.
+    # Discard invalid reference numbers before building search batches.
+    valid_inventions = []
+    discarded_inventions = []
     for inv in inventions_list:
-        if not inv.get("ReferenceNumber") or inv.get("RecordId") is None:
+        reference_number = inv.get("ReferenceNumber")
+        if not isinstance(reference_number, str) or not reference_number.strip():
+            discarded_inventions.append({
+                "RecordId": inv.get("RecordId"),
+                "ReferenceNumber": reference_number
+            })
+            continue
+        if inv.get("RecordId") is None:
             raise ValueError(
-                f"Missing RecordId or ReferenceNumber: "
-                f"{inv.get('RecordId')}"
+                f"Missing RecordId for ReferenceNumber: {reference_number!r}"
             )
+        valid_inventions.append(inv)
+
+    inventions_list = valid_inventions
 
     metadata_by_id = {}
     total_inventions = len(inventions_list)
@@ -398,6 +410,13 @@ def get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_lis
         f"- Successfully retrieved metadata for "
         f"{len(metadata_by_id)} unique inventions."
     )
+
+    if discarded_inventions:
+        logger.warning(
+            "Discarded %s inventions with invalid ReferenceNumber: %r",
+            len(discarded_inventions),
+            discarded_inventions
+        )
 
     return inventions_list
 
