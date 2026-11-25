@@ -105,7 +105,7 @@ def get_result_ids(BASE_URL, KEY_ID, KEY_SECRET, logger, start_transaction_id, l
     return result_ids
 
 
-def get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_ids):
+def get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_ids, page_size=200):
     # Now we have a list of result ids, we loop through all 
     # the results associated to each result id and assemble 
     # a list of inventions:
@@ -118,7 +118,7 @@ def get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_ids):
         num_inventions = 0
 
         while num_results > 0:
-            API_PATH = f"/api/v11.4/MatterSynchronizationRecordInfo/RecordChangeResults?resultId={result_id}&pageNumber={page_number}&pageSize=50"
+            API_PATH = f"/api/v11.4/MatterSynchronizationRecordInfo/RecordChangeResults?resultId={result_id}&pageNumber={page_number}&pageSize={page_size}"
             response = aqx_request(
                 method="GET",
                 base_url=BASE_URL,
@@ -284,10 +284,15 @@ def get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_lis
         )
 
         if response.status_code != 200:
+            logger.error(f"Endpoint: {SEARCH_PATH}")
+            logger.error(f"Status code: {response.status_code}")
+            logger.error(f"Content-Type: {response.headers.get('Content-Type')}")
+
             raise RuntimeError(
                 f"Failed to search for inventions metadata. "
                 f"Endpoint: {SEARCH_PATH}. "
-                f"Status code: {response.status_code}."
+                f"Status code: {response.status_code}. "
+                f"Response: {response.text[:3000]}"
             )
 
         try:
