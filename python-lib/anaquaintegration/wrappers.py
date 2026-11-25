@@ -5,6 +5,7 @@ import tempfile
 
 from anaquaintegration.utils import aqx_request
 
+
 def get_transaction_id(BASE_URL, KEY_ID, KEY_SECRET, logger):
     # Get last transaction ID:
     API_PATH = "/api/v11.4/Synchronization/CurrentSynchronizationTransactionId"
@@ -37,6 +38,7 @@ def get_transaction_id(BASE_URL, KEY_ID, KEY_SECRET, logger):
     
     return last_transaction_id
 
+
 def get_result_ids(BASE_URL, KEY_ID, KEY_SECRET, logger, start_transaction_id, last_transaction_id):
     # Since v11.4, Anaqua only allows retrieving windowed results. This 
     # window size is defined by the "MaximumTransactionWindowSize" endpoint:
@@ -57,8 +59,8 @@ def get_result_ids(BASE_URL, KEY_ID, KEY_SECRET, logger, start_transaction_id, l
         )
 
     max_window = int(response.text.strip().strip('"'))
-    logger.debug("********** ---[ Anaqua Read Inventions Recipe ]--- **********")
-    logger.debug(f"Max window size: {max_window}")
+    logger.info("********** ---[ Anaqua Read Inventions Recipe ]--- **********")
+    logger.info(f"Max window size: {max_window}")
 
     # Loops through transaction windows and assemble a list of result IDs:
     #inventions_list = []
@@ -94,95 +96,14 @@ def get_result_ids(BASE_URL, KEY_ID, KEY_SECRET, logger, start_transaction_id, l
         if "ErrorId" in result:
             raise RuntimeError(f"Anaqua error: {result}")
 
-        result_ids.append(result["ResultId"])
-
-#        result_id = result["ResultId"]
+        # Only add the result id if there are changes for inventions in this transaction window:
         result_count = result["ResultCount"]
-        logger.info(f"- Transactions {start_id}-{end_id}: {result_count} changes found, result ID: {result['ResultId']}")
-        
-    #     # Retrieve all result pages for this transaction window. Results can be paginated:
-    #     for page_number in range(1, (result_count + page_size - 1) // page_size + 1):
-    #         API_PATH = "/api/v11.4/MatterSynchronizationRecordInfo/RecordChangeResults"
-    #         page_response = aqx_request(
-    #             method="GET",
-    #             base_url=BASE_URL,
-    #             api_path=API_PATH,
-    #             api_key_id=KEY_ID,
-    #             api_key_content=KEY_SECRET,
-    #             params={
-    #                 "resultId": result_id,
-    #                 "pageNumber": page_number,
-    #                 "pageSize": page_size
-    #             }
-    #         )
-
-    #         if page_response.status_code != 200:
-    #             raise RuntimeError(
-    #                 f"Failed to search for inventions via RecordChanges."
-    #                 f"Endpoint: {API_PATH}."
-    #                 f"Status code: {response.status_code}."
-    #             )
+        logger.info(f"- Transactions {start_id}-{end_id}: {result_count} invention changes found, result ID: {result['ResultId']}")
+        if result_count > 0:
+            result_ids.append(result["ResultId"])
             
-    #         inventions_list.extend(page_response.json())
-
-    # logger.info("********** ---[ Anaqua Read Inventions Recipe ]--- **********")
-    # logger.info(f"Total invention changes retrieved: {len(inventions_list)}")
-
-
-    
-    # # Search for all transaction changes up until that transaction id. This
-    # # extracts all the changes since day 1, that a given account has access
-    # # to. This might be quite slow, so finding a proper "StartingTransactionId"
-    # # based on dates would probably be valuable (TODO)
-    # API_PATH = "/api/v11.4/MatterSynchronizationRecordInfo/RecordChanges"
-    # response = aqx_request(
-    #     method="POST",
-    #     base_url=BASE_URL,
-    #     api_path=API_PATH,
-    #     api_key_id=KEY_ID,
-    #     api_key_content=KEY_SECRET,
-    #     data=json.dumps(payload)
-    # )
-
-    # if response.status_code != 200:
-    #     raise RuntimeError(
-    #         f"Failed to search for inventions via RecordChanges."
-    #         f"Endpoint: {API_PATH}."
-    #         f"Status code: {response.status_code}."
-    #     )
-
-    # try:
-    #     resp_json = response.json()
-    # except:
-    #     try:
-    #         resp_json = json.loads(response.text)
-    #     except Exception as e:
-    #         body_excerpt = (response.text or "").replace("\n", " ").replace("\r", " ")[:600]
-    #         raise RuntimeError(
-    #             f"RecordChanges returned a non-JSON response. "
-    #             f"Endpoint: {API_PATH}. "
-    #             f"Body excerpt: {body_excerpt}"
-    #         ) from e
-
-    # if not isinstance(resp_json, dict):
-    #     raise RuntimeError(
-    #         f"Unexpected RecordChanges response type. Expected JSON object, got {type(resp_json).__name__}."
-    #     )
-
-    # result_id = resp_json.get("ResultId")
-    # if not result_id or not isinstance(result_id, int):
-    #     raise RuntimeError(
-    #         f"RecordChanges response missing/invalid 'ResultId'. "
-    #         f"Keys present: {sorted(resp_json.keys())[:30]}"
-    #     )
-
-    # logger.debug("********** ---[ Anaqua Read Inventions Recipe ]--- **********")
-    # logger.debug("Payload to search for all transaction changes:")
-    # logger.debug(payload)
-    # logger.debug("Results:")
-    # logger.debug(resp_json)
-    
     return result_ids
+
 
 def get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_ids):
     # Now we have a list of result ids, we loop through all 
@@ -245,14 +166,16 @@ def get_inventions_list(BASE_URL, KEY_ID, KEY_SECRET, logger, result_ids):
                 inventions_list += current_inventions_list
                 logger.info(f"{num_inventions} inventions extracted for result ID {result_id} (page {page_number})")
                 page_number += 1
-            
+
+    logger.info("********** ---[ Anaqua Read Inventions Recipe ]--- **********")
+    logger.info(f"Total inventions extracted: {len(inventions_list)}")
     return inventions_list
 
+
 def get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_list):
+    logger.debug("********** ---[ Anaqua Read Inventions Metadata ]--- **********")
     for index, inv in enumerate(inventions_list):
         invention_id = inv['RecordId']
-        
-        logger.debug("********** ---[ Anaqua Read Inventions Metadata ]--- **********")
         logger.debug(f'- Processing invention {invention_id}')
         
         API_PATH = f"/api/v11.4/InventionMatterSynchronizationInfo/{invention_id}"
@@ -287,6 +210,7 @@ def get_inventions_metadata(BASE_URL, KEY_ID, KEY_SECRET, logger, inventions_lis
         inventions_list[index] = {**inventions_list[index], **response.json()}
         
     return inventions_list
+
 
 def get_patents_list(BASE_URL, KEY_ID, KEY_SECRET, logger, input_dataset_name, record_id_col):
     inventions_dataset = dataiku.Dataset(input_dataset_name)
